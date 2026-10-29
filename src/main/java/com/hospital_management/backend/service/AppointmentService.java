@@ -2,9 +2,11 @@ package com.hospital_management.backend.service;
 
 import com.hospital_management.backend.dto.request.AppointmentRequestDto;
 import com.hospital_management.backend.dto.response.AppointmentResponseDto;
+import com.hospital_management.backend.dto.response.DoctorResponseDto;
 import com.hospital_management.backend.entity.AppointmentEntity;
 import com.hospital_management.backend.entity.DoctorEntity;
 import com.hospital_management.backend.entity.PatientEntity;
+import com.hospital_management.backend.entity.PrescriptionEntity;
 import com.hospital_management.backend.repository.AppointmentRepository;
 import com.hospital_management.backend.repository.DoctorRepository;
 import com.hospital_management.backend.repository.PatientRepository;
@@ -16,8 +18,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+
 
 @Service
 public class AppointmentService {
@@ -34,100 +35,109 @@ public class AppointmentService {
     //- Create an appointment
     public AppointmentResponseDto createAppointment(AppointmentRequestDto requestDto)  {
 
-        //get the doctor details
-        Optional<DoctorEntity> getDoctor = doctorRepository.findById(requestDto.getDoctorId());
-        if(getDoctor.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Doctor not found");
-        DoctorEntity doctorFound = getDoctor.get();
+        //get the doctor details and throw error if not found
+        DoctorEntity foundDoctor = doctorRepository.findById(requestDto.getDoctorId()).orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "Doctor does not exist"));
 
-        //get the patient details
-        Optional<PatientEntity> getPatient = patientRepository.findById(requestDto.getPatientId());
-        if(getPatient.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Patient not found");
-        PatientEntity patientFound = getPatient.get();
+        // get the patient details and throw error if not found
+        PatientEntity foundPatient = patientRepository.findById(requestDto.getPatientId()).orElseThrow(()->
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "Patient does not exist"));
 
-        LocalDate today = LocalDate.now();
-        LocalTime time = LocalTime.now();
+        // check if the doctor has an appointment at the proposed date and time
 
-        if(requestDto.getAppointmentDate().isBefore(today)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Appointment cannot be booked for past dates");
+        boolean doctorBooked = appointmentRepository.existsByDoctorIdAndAppointmentDateAndAppointmentTime(
+                requestDto.getDoctorId(), requestDto.getAppointmentDate(), requestDto.getAppointmentTime());
 
-        AppointmentEntity appointment = appointmentRepository.findByDoctorId(requestDto.getDoctorId());
+        // check if the patient has an appointment at the proposed date and time
+        boolean patientBooked = appointmentRepository.existsByPatientIdAndAppointmentDateAndAppointmentTime(
+                requestDto.getPatientId(), requestDto.getAppointmentDate(), requestDto.getAppointmentTime());
 
-        if(Objects.nonNull(appointment.getAppointmentDate())) {
-            if (appointment.getAppointmentDate().isEqual(requestDto.getAppointmentDate()) && !appointment.getPatientId().equals(requestDto.getPatientId())) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Doctor has another appointment at this time");
-            }
-        }
+        if(doctorBooked) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Doctor already has an appointment at this date and time");
 
-        AppointmentEntity getPatientApt = appointmentRepository.findByPatientId(requestDto.getPatientId());
-        if(getPatientApt.getAppointmentDate().isEqual(requestDto.getAppointmentDate()) && getPatientApt.getAppointmentTime().equals(requestDto.getAppointmentTime())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Patient has an appointment at this time");
-        }
+        if(patientBooked) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Patient already has an appointment at this date and time");
+
+        // check if appointment date and time is before today and now
+        if(requestDto.getAppointmentDate().isBefore(LocalDate.now()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Appointment cannot be booked for past dates and time");
+
         AppointmentEntity createAppointment = AppointmentEntity.builder()
-                .patientId(requestDto.getPatientId())
-                .doctorId(requestDto.getDoctorId())
+                .patient(foundPatient)
+                .doctor(foundDoctor)
                 .appointmentDate(requestDto.getAppointmentDate())
                 .appointmentTime(requestDto.getAppointmentTime())
                 .reason(requestDto.getReason())
                 .build();
         AppointmentEntity createdApt = appointmentRepository.save(createAppointment);
 
+        return getResponseDto(createdApt, foundPatient, foundDoctor);
+    }
+
+
+
+    //- View all appointments
+    public List<AppointmentResponseDto> getAllAppointments(){
+        return appointmentRepository.findAll()
+                .stream()
+                .map(appt-> AppointmentResponseDto.builder()
+                        .id(appt.getId())
+                        .patientName(appt.getPatient().getFirstName() + " " + appt.getPatient().getLastName())
+                        .doctorName(appt.getDoctor().getFirstName() + " " + appt.getDoctor().getLastName())
+                        .appointmentStatus(appt.getStatus())
+                        .doctorSpecialization(appt.getDoctor().getSpecialization())
+                        .appointmentDate(appt.getAppointmentDate())
+                        .appointmentTime(appt.getAppointmentTime())
+                        .build())
+                .toList();
+    }
+
+    //- View an appointment by ID
+    public AppointmentResponseDto getOneAppointment(Long id){
+        // get appointment
+        AppointmentEntity oneAppointment = appointmentRepository.findById(id).orElseThrow(() ->
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "Appointment Not found"));
+
+        return getResponseDto(oneAppointment, oneAppointment.getPatient(), oneAppointment.getDoctor());
+    }
+
+    //- Cancel an appointment
+    public AppointmentResponseDto cancelAppointment(Long id){
+        // get appointment
+        AppointmentEntity oneAppointment = appointmentRepository.findById(id).orElseThrow(() ->
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "Appointment Not found"));
+
+        if(oneAppointment.getStatus().equals(AppointmentStatus.COMPLETED)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Appointment already completed.");
+        oneAppointment.setStatus(AppointmentStatus.CANCELLED);
+        AppointmentEntity cancelled =  appointmentRepository.save(oneAppointment);
+        return getResponseDto(cancelled, cancelled.getPatient(), cancelled.getDoctor());
+    }
+
+    //- Complete an appointment
+    public AppointmentResponseDto completeAppointment(Long id){
+        // get appointment
+        AppointmentEntity oneAppointment = appointmentRepository.findById(id).orElseThrow(() ->
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "Appointment Not found"));
+        if(oneAppointment.getStatus().equals(AppointmentStatus.CANCELLED)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Appointment already cancelled.");
+        oneAppointment.setStatus(AppointmentStatus.COMPLETED);
+        AppointmentEntity saved = appointmentRepository.save(oneAppointment);
+        return getResponseDto(saved, saved.getPatient(), saved.getDoctor());
+    }
+
+    private static AppointmentResponseDto getResponseDto(AppointmentEntity createdApt, PatientEntity foundPatient, DoctorEntity foundDoctor) {
         return AppointmentResponseDto.builder()
-                .Id(createdApt.getId())
-                .patientName(patientFound.getFirstName() +" " + patientFound.getLastName())
-                .doctorName(doctorFound.getFirstName() + " " + doctorFound.getLastName())
-                .doctorSpecialization(doctorFound.getSpecialization())
+                .id(createdApt.getId())
+                .patientName(foundPatient.getFirstName() + " " + foundPatient.getLastName())
+                .doctorName(foundDoctor.getFirstName() + " " + foundDoctor.getLastName())
+                .doctorSpecialization(foundDoctor.getSpecialization())
                 .appointmentTime(createdApt.getAppointmentTime())
                 .appointmentDate(createdApt.getAppointmentDate())
                 .appointmentStatus(createdApt.getStatus())
                 .build();
     }
 
-    //- View all appointments
-    public List<AppointmentEntity> getAllAppointments(){
-        return appointmentRepository.findAll();
+    public String deletePrescription(Long id){
+        AppointmentEntity findOne = appointmentRepository.findById(id).orElseThrow(()->
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "patient not found"));
+        appointmentRepository.delete(findOne);
+        return "Appointment deleted successfully";
     }
-
-    //- View an appointment by ID
-    public AppointmentResponseDto getOneAppointment(Long id){
-        Optional<AppointmentEntity> findOne = appointmentRepository.findById(id);
-        if(findOne.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Appointment Not found");
-        AppointmentEntity foundApt = findOne.get();
-        //get the doctor details
-        Optional<DoctorEntity> getDoctor = doctorRepository.findById(foundApt.getDoctorId());
-        if(getDoctor.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Doctor not found");
-        DoctorEntity doctorFound = getDoctor.get();
-        //get the patient details
-        Optional<PatientEntity> getPatient = patientRepository.findById(foundApt.getPatientId());
-        if(getPatient.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Patient not found");
-        PatientEntity patientFound = getPatient.get();
-        return AppointmentResponseDto.builder()
-                .Id(foundApt.getId())
-                .patientName(patientFound.getFirstName() + patientFound.getLastName())
-                .doctorName(doctorFound.getFirstName() + doctorFound.getLastName())
-                .doctorSpecialization(doctorFound.getSpecialization())
-                .appointmentDate(foundApt.getAppointmentDate())
-                .appointmentTime(foundApt.getAppointmentTime())
-                .appointmentStatus(foundApt.getStatus())
-                .build();
-    }
-
-    //- Cancel an appointment
-    public AppointmentEntity cancelAppointment(Long id){
-        Optional<AppointmentEntity> getApt = appointmentRepository.findById(id);
-        if(getApt.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Appointment not found");
-        AppointmentEntity foundApt = getApt.get();
-        if(foundApt.getStatus().equals(AppointmentStatus.COMPLETED)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Appointment already completed.");
-        foundApt.setStatus(AppointmentStatus.CANCELLED);
-        return appointmentRepository.save(foundApt);
-    }
-
-    //- Complete an appointment
-    public AppointmentEntity completeAppointment(Long id){
-        Optional<AppointmentEntity> getApt = appointmentRepository.findById(id);
-        if(getApt.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Appointment not found");
-        AppointmentEntity foundApt = getApt.get();
-        if(foundApt.getStatus().equals(AppointmentStatus.CANCELLED)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Appointment already cancelled.");
-        foundApt.setStatus(AppointmentStatus.COMPLETED);
-        return appointmentRepository.save(foundApt);
-    }
-
 }

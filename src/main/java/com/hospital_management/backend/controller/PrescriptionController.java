@@ -23,13 +23,18 @@ public class PrescriptionController {
     }
 
     @GetMapping("appointment/{id}")
-    List<PrescriptionEntity> getPrescriptionsForAppointment(@PathVariable() Long id){
+    List<PrescriptionResponseDto> getPrescriptionsForAppointment(@PathVariable() Long id){
         return prescriptionService.getPrescriptions(id);
     }
 
     @GetMapping("/{id}")
     PrescriptionResponseDto getOnePrescription(@PathVariable() Long id){
         return prescriptionService.getPrescription(id);
+    }
+
+    @DeleteMapping("/{id}")
+    String deleteOnePrescription(@PathVariable() Long id){
+       return prescriptionService.deletePrescription(id);
     }
 
 

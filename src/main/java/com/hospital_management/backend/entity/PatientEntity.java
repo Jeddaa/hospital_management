@@ -1,12 +1,11 @@
 package com.hospital_management.backend.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 
 @Entity
@@ -26,5 +25,7 @@ public class PatientEntity {
     private String phoneNumber;
     private LocalDate dateOfBirth;
     private String address;
+    @OneToMany(mappedBy = "patient", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<AppointmentEntity> appointments = new ArrayList<>();
 
 }

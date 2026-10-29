@@ -13,7 +13,10 @@ public class PrescriptionEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private Long appointmentId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "appointment_id", nullable = false)
+    private AppointmentEntity appointment;
+
     private String medicationName;
     private String dosage;
     private String instructions;

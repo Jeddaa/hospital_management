@@ -12,7 +12,7 @@ import java.time.LocalTime;
 @Builder
 @Getter
 public class AppointmentResponseDto {
-    private long Id;
+    private long id;
     private String patientName;
     private String doctorName;
     private String doctorSpecialization;

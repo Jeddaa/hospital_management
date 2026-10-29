@@ -1,6 +1,7 @@
 package com.hospital_management.backend.service;
 
 import com.hospital_management.backend.dto.request.CreatePatientDto;
+import com.hospital_management.backend.dto.request.UpdatePatientDto;
 import com.hospital_management.backend.dto.response.PatientResponseDto;
 import com.hospital_management.backend.entity.PatientEntity;
 import com.hospital_management.backend.repository.PatientRepository;
@@ -46,6 +47,7 @@ public class PatientService {
                 .build();
        PatientEntity createdPat = patientRepository.save(patientEntity);
        return PatientResponseDto.builder()
+               .id(createdPat.getId())
                .firstName(createdPat.getFirstName())
                .lastName(createdPat.getLastName())
                .phoneNumber(createdPat.getPhoneNumber())
@@ -56,8 +58,19 @@ public class PatientService {
     }
     //- View all patients
 
-    public List<PatientEntity> getAllPatients(){
-        return patientRepository.findAll();
+    public List<PatientResponseDto> getAllPatients(){
+        return patientRepository.findAll()
+                .stream()
+                .map(patient -> PatientResponseDto.builder()
+                        .id(patient.getId())
+                        .firstName(patient.getFirstName())
+                        .lastName(patient.getLastName())
+                        .dateOfBirth(patient.getDateOfBirth())
+                        .email(patient.getEmail())
+                        .phoneNumber(patient.getPhoneNumber())
+                        .address(patient.getAddress())
+                        .build())
+                .toList();
     }
     //- View a patient by ID
     public PatientResponseDto getOnePatientById(Long id){
@@ -75,15 +88,13 @@ public class PatientService {
                 .build();
     }
     //- Update a patient
-    public PatientEntity updatePatient(Long id, CreatePatientDto updatedPatient){
+    public PatientEntity updatePatient(Long id, UpdatePatientDto updatedPatient){
         Optional<PatientEntity> findOne = patientRepository.findById(id);
         if(findOne.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "patient not found");
         PatientEntity foundPatient = findOne.get();
         //should only be able to update phone number, address, email and date of birth
         //@ask legends if any other check is required
         if(Objects.nonNull(updatedPatient.getPhoneNumber())) foundPatient.setPhoneNumber(updatedPatient.getPhoneNumber());
-        if(Objects.nonNull(updatedPatient.getFirstName())) foundPatient.setFirstName(updatedPatient.getFirstName());
-        if(Objects.nonNull(updatedPatient.getLastName())) foundPatient.setLastName(updatedPatient.getLastName());
         if(Objects.nonNull(updatedPatient.getEmail())) foundPatient.setEmail(updatedPatient.getEmail());
         if(Objects.nonNull(updatedPatient.getAddress())) foundPatient.setAddress(updatedPatient.getAddress());
         if(Objects.nonNull(updatedPatient.getDateOfBirth())) foundPatient.setDateOfBirth(updatedPatient.getDateOfBirth());

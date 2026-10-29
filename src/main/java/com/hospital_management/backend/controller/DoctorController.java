@@ -1,6 +1,7 @@
 package com.hospital_management.backend.controller;
 
 import com.hospital_management.backend.dto.request.CreateDoctorRequestDto;
+import com.hospital_management.backend.dto.request.UpdateDoctorRequestDto;
 import com.hospital_management.backend.dto.response.DoctorResponseDto;
 import com.hospital_management.backend.entity.DoctorEntity;
 import com.hospital_management.backend.service.DoctorService;
@@ -30,7 +31,7 @@ public class DoctorController {
     }
 
     @GetMapping()
-    public List<DoctorEntity> getOneDoctor(){
+    public List<DoctorResponseDto> getAllDoctor(){
         return doctorService.getAllDoctor();
     }
 
@@ -40,7 +41,7 @@ public class DoctorController {
     }
 
     @PatchMapping("/{id}")
-    public DoctorResponseDto updateDoctor(@PathVariable Long id, @RequestBody CreateDoctorRequestDto createData){
+    public DoctorResponseDto updateDoctor(@PathVariable Long id, @RequestBody UpdateDoctorRequestDto createData){
         return doctorService.updateOneDoctor(id, createData);
     }
 

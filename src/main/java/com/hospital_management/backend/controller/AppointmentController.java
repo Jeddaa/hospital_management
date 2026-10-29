@@ -23,7 +23,7 @@ public class AppointmentController {
     }
 
     @GetMapping()
-    public List<AppointmentEntity> getOneAppointment(){
+    public List<AppointmentResponseDto> getOneAppointment(){
         return appointmentService.getAllAppointments();
     }
 
@@ -33,12 +33,17 @@ public class AppointmentController {
     }
 
     @PatchMapping("/{id}/cancel")
-    public AppointmentEntity cancelAppointment(@PathVariable Long id){
+    public AppointmentResponseDto cancelAppointment(@PathVariable Long id){
         return appointmentService.cancelAppointment(id);
     }
     @PatchMapping("/{id}/complete")
-    public AppointmentEntity completeAppointment(@PathVariable Long id){
+    public AppointmentResponseDto completeAppointment(@PathVariable Long id){
         return appointmentService.completeAppointment(id);
+    }
+
+    @DeleteMapping("/{id}")
+    String deleteOneAppoointment(@PathVariable() Long id){
+        return appointmentService.deletePrescription(id);
     }
 
 }

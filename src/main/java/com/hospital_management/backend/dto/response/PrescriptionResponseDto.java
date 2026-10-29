@@ -8,7 +8,7 @@ import lombok.Setter;
 @Setter
 @Builder
 public class PrescriptionResponseDto {
-    private Long Id;
+    private Long id;
     private Long appointmentId;
     private String medicationName;
     private String dosage;
